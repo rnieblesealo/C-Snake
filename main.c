@@ -16,7 +16,12 @@ typedef struct Entity{
 
 int IsActiveEntity(Entity e){
 	// Active entities are those whose x and y coordinates are both -1
-	return (e.posX == -1 && e.posY == -1) ? 0 : 1;
+	return !(e.posX == -1 && e.posY == -1);
+}
+
+int Collision(Entity a, Entity b){
+	// Are entities a and b colliding? (Do they have the same position)
+	return (a.posX == b.posX && a.posY == b.posY);
 }
 
 Entity* InitializeSnake(int headPosX, int headPosY){
@@ -139,7 +144,16 @@ int main(){
 		
 	// Begin main loop
 	int running = 1;
-	while(running){
+	while(running){		
+		// Check if snake head collides with any of its nodes
+		for (int i = 1; IsActiveEntity(snake[i]); ++i){
+			if (Collision(snake[0], snake[i])){
+				ClearDisplay(DISPLAY);
+				puts("Snake crashed into itself!");
+				return 1;
+			}
+		};
+
 		// Safely collect input by grabbing first character of entire line from stdin such that the line is removed from the buffer
 		char line[1000];
 		char input;
@@ -161,14 +175,15 @@ int main(){
 			case K_RIGHT:
 				MoveSnake(snake, 1, 0);
 				break;
+			case 'x':
+				GrowSnake(snake);
 			default:
-				GrowSnake(snake); // TODO Remove, this is for testing
 				break;
 		}
-
+		
 		// Clear display
 		ClearDisplay(DISPLAY);
-		
+
 		// Draw snake
 		DisplayEntities(DISPLAY, snake, '*');
 		
