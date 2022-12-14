@@ -9,6 +9,12 @@
 #define K_LEFT 'a'
 #define K_RIGHT 'd'
 
+#define UP 1
+#define DOWN 2
+#define LEFT 3
+#define RIGHT 4
+#define NONE 0
+
 typedef struct Entity{
 	int posX;
 	int posY;
@@ -44,7 +50,41 @@ Entity* InitializeSnake(int headPosX, int headPosY){
 	return snake;
 }
 
-void MoveSnake(Entity* snake, int dx, int dy){
+void MoveSnake(Entity* snake, int direction){
+	// Determine dx and dy from direction
+	int dx = 0;
+	int dy = 0;
+
+	switch (direction){
+		case UP:
+			dx = 0;
+			dy = -1;
+			break;
+		case DOWN:
+			dx = 0;
+			dy = 1;
+			break;
+		case LEFT:
+			dx = -1;
+			dy = 0;
+			break;
+		case RIGHT:
+			dx = 1;
+			dy = 0;
+			break;
+		default:
+			return;
+	}
+	
+	// Check if we aren't moving in opposite direction (towards the node after the head; the neck)
+	int neckExists = IsActiveEntity(snake[1]);
+	int dxOverlap = (snake[1].posX == snake[0].posX + dx);
+       	int dyOverlap = (snake[1].posY == snake[0].posY + dy);	
+	
+	if (neckExists && dxOverlap && dyOverlap){
+		return;
+	}
+
 	// Move head node first
 	int lastPosX = snake[0].posX;
 	int lastPosY = snake[0].posY;
@@ -135,13 +175,16 @@ int main(){
 	
 	// Initialize snake
 	Entity* snake = InitializeSnake(X_SIZE / 2, Y_SIZE / 2);
+	
+	// Set last move direction (used to disallow moving snake into itself)
+	int lastMoveDirection = NONE;
 
 	// Run display once, begin by drawing snake
 	DisplayEntities(DISPLAY, snake, '*');
 
 	// Show display
 	Display(DISPLAY);
-		
+	
 	// Begin main loop
 	int running = 1;
 	while(running){		
@@ -164,17 +207,18 @@ int main(){
 		// Match input to move snake
 		switch (input){
 			case K_UP:
-				MoveSnake(snake, 0, -1);
+				MoveSnake(snake, UP);
 				break;
 			case K_DOWN:
-				MoveSnake(snake, 0, 1);
+				MoveSnake(snake, DOWN);
 				break;
 			case K_LEFT:
-				MoveSnake(snake, -1, 0);
+				MoveSnake(snake, LEFT);
 				break;
 			case K_RIGHT:
-				MoveSnake(snake, 1, 0);
+				MoveSnake(snake, RIGHT);
 				break;
+			// TODO Remove, this is just for testing
 			case 'x':
 				GrowSnake(snake);
 			default:
