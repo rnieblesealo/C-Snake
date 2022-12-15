@@ -1,36 +1,118 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
-#define X_SIZE 10
-#define Y_SIZE 10
+// Grid Size!
+#define X_SIZE 8
+#define Y_SIZE 8
 
+// Key Codes!
 #define K_UP 'w'
 #define K_DOWN 's'
 #define K_LEFT 'a'
 #define K_RIGHT 'd'
 
+// Directions!
 #define UP 1
 #define DOWN 2
 #define LEFT 3
 #define RIGHT 4
 #define NONE 0
 
+// Input Length!
+#define MAX_INPUT_LEN 32
+
+// Colors!
+#define B_RED "\e[1;31m"
+#define B_GREEN "\e[1;32m"
+#define B_WHITE "\e[1;37m"
+#define B_YELLOW "\e[1;33m"
+#define C_RESET "\e[0m"
+
+// Skins!
+#define S_SNAKE '*'
+#define S_FRUIT 'O'
+#define S_DEDGE '|'
+#define S_PROMPT ':'
+
+// Score!
+#define SCORE_PER_FRUIT 25
+
+typedef struct Vector2{
+	int x;
+	int y;
+} Vector2;
+
 typedef struct Entity{
-	int posX;
-	int posY;
+	char skin;
+	Vector2 position;
 } Entity;
+
+Vector2 new_Vector2(int x, int y){
+	Vector2 n;
+	
+	n.x = x;
+	n.y = y;
+	
+	return n;
+}
 
 int IsActiveEntity(Entity e){
 	// Active entities are those whose x and y coordinates are both -1
-	return !(e.posX == -1 && e.posY == -1);
+	return !(e.position.x == -1 && e.position.y == -1);
 }
 
 int Collision(Entity a, Entity b){
 	// Are entities a and b colliding? (Do they have the same position)
-	return (a.posX == b.posX && a.posY == b.posY);
+	return (a.position.x == b.position.x && a.position.y == b.position.y);
 }
 
-Entity* InitializeSnake(int headPosX, int headPosY){
+int IsAtPos(Entity a, int x, int y){
+	// Is entity a at position?
+	return (a.position.x == x && a.position.y == y);
+}
+
+Vector2 PickFruitPosition(Entity* snake){
+	// Generate table of positions
+	Vector2 positions[X_SIZE * Y_SIZE];
+
+	// Go over every position and add it to table IF it doesn't overlap with the snake 
+	int i = 0;
+	for (int y = 0; y < Y_SIZE; ++y){
+		for (int x = 0; x < X_SIZE; ++x){
+			int isOccupied = 0;
+			for (int j = 0; IsActiveEntity(snake[j]); ++j){
+				// If current (x, y) matches any of snake's (x, y), this position is occupied and we do not need to perform any other checks
+				if (IsAtPos(snake[j], x, y)){
+					isOccupied = 1;
+					break;
+				}
+			}
+		
+			// Check if position is not occupied, if so, add to the list!
+			if (!isOccupied){
+				positions[i] = new_Vector2(x, y);
+				i++;
+			}
+		}
+	}
+
+	// Pick random position and return it
+	return positions[rand() % i];
+}
+
+Entity* InitializeFruit(Entity* snake, char skin){
+	// Allocate fruit
+	Entity* fruit = (Entity*)malloc(sizeof(Entity));
+
+	// Pick random position for fruit
+	fruit->position = PickFruitPosition(snake);
+	fruit->skin = skin;
+
+	return fruit;
+}
+
+Entity* InitializeSnake(int headPosX, int headPosY, char skin){
 	int snakeLength = X_SIZE * Y_SIZE;
 
 	// Allocate snake nodes to heap; max theoretical size is size of grid, declared above
@@ -38,13 +120,14 @@ Entity* InitializeSnake(int headPosX, int headPosY){
 
 	// Every snake node's position is negative; this means snake node is not active
 	for (int i = 0; i < snakeLength; ++i){
-		snake[i].posX = -1;
-		snake[i].posY = -1;
+		snake[i].position.x = -1;
+		snake[i].position.y = -1;
+		snake[i].skin = skin;
 	}
 
 	// Initialize head of snake
-	snake[0].posX = headPosX;
-	snake[0].posY = headPosY;
+	snake[0].position.x = headPosX;
+	snake[0].position.y = headPosY;
 
 	// Return snake array
 	return snake;
@@ -78,27 +161,27 @@ void MoveSnake(Entity* snake, int direction){
 	
 	// Check if we aren't moving in opposite direction (towards the node after the head; the neck)
 	int neckExists = IsActiveEntity(snake[1]);
-	int dxOverlap = (snake[1].posX == snake[0].posX + dx);
-       	int dyOverlap = (snake[1].posY == snake[0].posY + dy);	
+	int dxOverlap = (snake[1].position.x == snake[0].position.x + dx);
+       	int dyOverlap = (snake[1].position.y == snake[0].position.y + dy);	
 	
 	if (neckExists && dxOverlap && dyOverlap){
 		return;
 	}
 
 	// Move head node first
-	int lastPosX = snake[0].posX;
-	int lastPosY = snake[0].posY;
+	int lastPosX = snake[0].position.x;
+	int lastPosY = snake[0].position.y;
 	
-	snake[0].posX += dx;
-	snake[0].posY += dy;
+	snake[0].position.x += dx;
+	snake[0].position.y += dy;
 
 	for (int i = 1; IsActiveEntity(snake[i]); ++i){
 		// Move every node to the position of the node ahead of it before it was moved
-		int cacheX = snake[i].posX;
-		int cacheY = snake[i].posY;
+		int cacheX = snake[i].position.x;
+		int cacheY = snake[i].position.y;
 
-		snake[i].posX = lastPosX;
-		snake[i].posY = lastPosY;
+		snake[i].position.x = lastPosX;
+		snake[i].position.y = lastPosY;
 	
 		lastPosX = cacheX;
 		lastPosY = cacheY;
@@ -113,8 +196,8 @@ void GrowSnake(Entity* snake){
 	}
 	
 	// TODO Figure out direction of new snake node; for now, just place it at left of previous node
-	snake[i].posX = snake[i - 1].posX - 1;
-	snake[i].posY = snake[i - 1].posY;
+	snake[i].position.x = snake[i - 1].position.x - 1;
+	snake[i].position.y = snake[i - 1].position.y;
 }
 
 char** InitializeDisplay(){
@@ -146,10 +229,25 @@ void ClearDisplay(char** DISPLAY){
 	}
 }
 
-void DisplayEntities(char** DISPLAY, Entity* entities, char icon){
+void DisplayPrompt(){
+	// Print a prompt before user enters their command
+	printf(B_YELLOW "%c" C_RESET, S_PROMPT);
+}
+
+void DisplayScore(int score){
+	// Display current score :)
+	printf("[ SCORE: " B_YELLOW "%d" C_RESET " ]\n", score);
+}
+
+void DisplayEntity(char** DISPLAY, Entity* entity){
+	// Add single dynamic entity to display
+	DISPLAY[entity->position.y][entity->position.x] = entity->skin;
+}
+
+void DisplayEntities(char** DISPLAY, Entity* entities){
 	// Add entities to display using an icon
 	for (int i = 0; IsActiveEntity(entities[i]); ++i){
-		DISPLAY[entities[i].posY][entities[i].posX] = icon;
+		DISPLAY[entities[i].position.y][entities[i].position.x] = entities[i].skin;
 	}
 }
 
@@ -157,55 +255,69 @@ void Display(char** DISPLAY){
 	// Show display
 	for (int y = 0; y < Y_SIZE; ++y){
 		// Draw left bound
-		putchar('|');
+		printf(B_WHITE "%c" C_RESET, S_DEDGE);
 		
 		// Draw row
 		for (int x = 0; x < X_SIZE; ++x){
-			printf(" %c ", DISPLAY[y][x]);
+			// Check if char matches skin of snake or fruit!
+			switch (DISPLAY[y][x]){
+				case S_SNAKE:
+					printf(B_GREEN " %c " C_RESET, S_SNAKE);
+					break;
+				case S_FRUIT:
+					printf(B_RED " %c " C_RESET, S_FRUIT);
+					break;
+				default:
+					printf(" %c ", DISPLAY[y][x]);
+			}	
 		}
 		
 		// Draw right bound and newline
-		puts("|");
+		printf(B_WHITE "%c" C_RESET "\n", S_DEDGE);
 	}
 }
 
 int main(){
+	// Seed random number generator
+	srand(time(NULL));
+	
 	// Initialize display
 	char** DISPLAY = InitializeDisplay();
 	
 	// Initialize snake
-	Entity* snake = InitializeSnake(X_SIZE / 2, Y_SIZE / 2);
+	Entity* snake = InitializeSnake(X_SIZE / 2, Y_SIZE / 2, '*');
 	
 	// Set last move direction (used to disallow moving snake into itself)
 	int lastMoveDirection = NONE;
 
-	// Run display once, begin by drawing snake
-	DisplayEntities(DISPLAY, snake, '*');
+	// Initialize fruit
+	Entity* fruit = InitializeFruit(snake, 'O');
+
+	// Initialize score
+	int score = 0;
+
+	// Run display once, begin by drawing fruit and snake
+	// NOTE fruit should be drawn on top of snake!
+	DisplayEntity(DISPLAY, fruit);
+	DisplayEntities(DISPLAY, snake);
 
 	// Show display
+	DisplayScore(score);
 	Display(DISPLAY);
+	DisplayPrompt();
 	
 	// Begin main loop
 	int running = 1;
-	while(running){		
-		// Check if snake head collides with any of its nodes
-		for (int i = 1; IsActiveEntity(snake[i]); ++i){
-			if (Collision(snake[0], snake[i])){
-				ClearDisplay(DISPLAY);
-				puts("Snake crashed into itself!");
-				return 1;
-			}
-		};
-
+	while (running){		
 		// Safely collect input by grabbing first character of entire line from stdin such that the line is removed from the buffer
-		char line[1000];
-		char input;
+		char inputLine[MAX_INPUT_LEN];
+		char inputKey = 0;
 		
-		fgets(line, 1000, stdin);
-		input = line[0];
+		fgets(inputLine, MAX_INPUT_LEN, stdin);
+		inputKey = inputLine[0];
 
 		// Match input to move snake
-		switch (input){
+		switch (inputKey){
 			case K_UP:
 				MoveSnake(snake, UP);
 				break;
@@ -218,21 +330,50 @@ int main(){
 			case K_RIGHT:
 				MoveSnake(snake, RIGHT);
 				break;
-			// TODO Remove, this is just for testing
-			case 'x':
-				GrowSnake(snake);
 			default:
 				break;
 		}
 		
+		// Check if snake has hit a wall (head is out of bounds)
+		if (snake[0].position.x < 0 || snake[0].position.x >= X_SIZE || snake[0].position.y < 0 || snake[0].position.y >= Y_SIZE){
+			ClearDisplay(DISPLAY);
+			puts(B_RED "Snake has hit a wall!" C_RESET);
+			printf("Your score:" B_YELLOW " %d\n" C_RESET, score);
+			return 1;
+		}
+		
+		// Check if snake head collides with any of its nodes
+		for (int i = 1; IsActiveEntity(snake[i]); ++i){
+			if (Collision(snake[0], snake[i])){
+				ClearDisplay(DISPLAY);
+				puts(B_RED "Snake crashed into itself!" C_RESET);
+				printf("Your score:" B_YELLOW " %d\n" C_RESET, score);
+				return 1;
+			}
+		};
+		
+		// Check if snake head is colliding with fruit; if so, grow snake and move fruit and add score
+		if (IsAtPos(snake[0], fruit->position.x, fruit->position.y)){
+			fruit->position = PickFruitPosition(snake);
+			GrowSnake(snake);
+			score += SCORE_PER_FRUIT;
+		}	
+
 		// Clear display
 		ClearDisplay(DISPLAY);
 
-		// Draw snake
-		DisplayEntities(DISPLAY, snake, '*');
+		// Draw snake and fruit
+		DisplayEntity(DISPLAY, fruit);
+		DisplayEntities(DISPLAY, snake);
 		
 		// Display!
+		DisplayScore(score);
 		Display(DISPLAY);
+		DisplayPrompt();
+
+		// Show debug info
+		//printf("Position of head: (%d, %d)\n", snake[0].position.x, snake[0].position.y);
+		//printf("Display at position of head: %c\n", DISPLAY[snake[0].position.y][snake[0].position.x]);
 	}
 
 	return 0;
