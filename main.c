@@ -1,3 +1,7 @@
+// By Rafael Niebles
+// This isn't the most amazing piece of code ever, but I'm really proud of it.
+// Please don't copy it! Thank you <3
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
