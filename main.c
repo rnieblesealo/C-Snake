@@ -42,6 +42,9 @@
 // Score
 #define SCORE_PER_FRUIT 25
 
+// File IO
+#define SAVEFILE "save"
+
 // Structures
 typedef struct Vector2{
 	int x;
@@ -81,10 +84,14 @@ Entity* InitializeSnake( int headPosX, int headPosY, char skin );
 void MoveSnake( Entity* snake, int direction );
 void GrowSnake( Entity* snake );
 
+// File IO Functions
+int WriteHighscore(int highScore);
+int ReadHighscore();
+
 int main(){
 	// Seed random number generator
 	srand(time(NULL));
-	
+		
 	// Initialize display
 	char** display = InitializeDisplay();
 	
@@ -99,6 +106,7 @@ int main(){
 
 	// Initialize score
 	int score = 0;
+	ReadHighscore(&score);
 	
 	// Run all display functions once to show game before taking input
 	DrawEntity(display, fruit);
@@ -141,6 +149,11 @@ int main(){
 			ClearDisplay(display);
 			puts(B_RED "Snake has hit a wall!" C_RESET);
 			printf("Your score:" B_YELLOW " %d\n" C_RESET, score);
+			
+			// TODO Add status feedback
+			// Write highscore
+			WriteHighscore(score);
+			
 			return 1;
 		}
 		
@@ -150,6 +163,11 @@ int main(){
 				ClearDisplay(display);
 				puts(B_RED "Snake crashed into itself!" C_RESET);
 				printf("Your score:" B_YELLOW " %d\n" C_RESET, score);
+				
+				// TODO Add status feedback
+				// Write highscore
+				WriteHighscore(score);
+				
 				return 1;
 			}
 		};
@@ -404,4 +422,30 @@ void GrowSnake(Entity* snake){
 	// TODO Figure out direction of new snake node; for now, just place it at left of previous node
 	snake[i].position.x = snake[i - 1].position.x - 1;
 	snake[i].position.y = snake[i - 1].position.y;
+}
+
+int WriteHighscore(int highScore){
+	FILE* savefile = fopen(SAVEFILE, "w");
+	
+	if (savefile == NULL)
+		return 0;
+	
+	// Write highscore to file only if pointer not null
+	fprintf(savefile, "%d", highScore);
+	fclose(savefile);
+
+	return 1;
+}
+
+int ReadHighscore(int* score_ptr){
+	FILE* savefile = fopen(SAVEFILE, "r");
+
+	if (savefile == NULL)
+		return 0;
+
+	// Read highscore only if file pointer not null
+	fscanf(savefile, "%d", score_ptr);
+	fclose(savefile);
+
+	return 1;
 }
